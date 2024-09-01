@@ -1,4 +1,3 @@
-# Import necessary libraries
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -29,7 +28,7 @@ print(f'Device: {device}')
 
 # Load the datasets
 data_file_path = "mTORcanonical.csv"  # Update this with your dataset path
-predetermined_smiles_path = "unique_smiles.csv"  # Path to predetermined SMILES
+predetermined_smiles_path = "unique_smile3.csv"  # Path to predetermined SMILES
 
 # Load main dataset
 df = pd.read_csv(data_file_path)
@@ -133,7 +132,7 @@ model.to(device)
 
 # Define optimizer, loss function, and scheduler
 learning_rate = 2e-5
-epochs = 50
+epochs = 100
 
 optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
 criterion = nn.CrossEntropyLoss()
@@ -191,9 +190,9 @@ def train_epoch(model, data_loader, optimizer, criterion, scheduler):
             tanimoto_sim = calculate_tanimoto_similarity(true_smiles, pred_smiles)
             tanimoto_similarities.append(tanimoto_sim)
 
-    avg_loss = total_loss / len(data_loader)
-    accuracy = total_correct / len(data_loader.dataset)
-    avg_tanimoto_sim = np.mean(tanimoto_similarities)
+    avg_loss = total_loss / len(data_loader) if len(data_loader) > 0 else 0
+    accuracy = total_correct / len(data_loader.dataset) if len(data_loader.dataset) > 0 else 0
+    avg_tanimoto_sim = np.mean(tanimoto_similarities) if tanimoto_similarities else 0
     return avg_loss, accuracy, avg_tanimoto_sim
 
 def eval_epoch(model, data_loader, criterion):
@@ -201,6 +200,10 @@ def eval_epoch(model, data_loader, criterion):
     total_loss = 0
     total_correct = 0
     tanimoto_similarities = []
+
+    if len(data_loader) == 0:
+        print("Warning: Validation/Test DataLoader is empty.")
+        return total_loss, total_correct, 0
 
     with torch.no_grad():
         for batch in data_loader:
@@ -223,65 +226,73 @@ def eval_epoch(model, data_loader, criterion):
                 tanimoto_sim = calculate_tanimoto_similarity(true_smiles, pred_smiles)
                 tanimoto_similarities.append(tanimoto_sim)
 
-    avg_loss = total_loss / len(data_loader)
-    accuracy = total_correct / len(data_loader.dataset)
-    avg_tanimoto_sim = np.mean(tanimoto_similarities)
+    avg_loss = total_loss / len(data_loader) if len(data_loader) > 0 else 0
+    accuracy = total_correct / len(data_loader.dataset) if len(data_loader.dataset) > 0 else 0
+    avg_tanimoto_sim = np.mean(tanimoto_similarities) if tanimoto_similarities else 0
     return avg_loss, accuracy, avg_tanimoto_sim
 
 # Training Loop
 train_losses = []
 train_accuracies = []
-train_tanimotos = []
+train_tanimoto_sims = []
+
 val_losses = []
 val_accuracies = []
-val_tanimotos = []
+val_tanimoto_sims = []
 
 for epoch in range(epochs):
     print(f"Epoch {epoch + 1}/{epochs}")
-    train_loss, train_acc, train_tanimoto = train_epoch(model, train_loader, optimizer, criterion, scheduler)
-    val_loss, val_acc, val_tanimoto = eval_epoch(model, val_loader, criterion)
+
+    train_loss, train_acc, train_tanimoto_sim = train_epoch(
+        model, train_loader, optimizer, criterion, scheduler
+    )
+    val_loss, val_acc, val_tanimoto_sim = eval_epoch(
+        model, val_loader, criterion
+    )
 
     train_losses.append(train_loss)
     train_accuracies.append(train_acc)
-    train_tanimotos.append(train_tanimoto)
+    train_tanimoto_sims.append(train_tanimoto_sim)
+
     val_losses.append(val_loss)
     val_accuracies.append(val_acc)
-    val_tanimotos.append(val_tanimoto)
+    val_tanimoto_sims.append(val_tanimoto_sim)
 
-    print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_acc*100:.2f}%, Train Tanimoto: {train_tanimoto:.4f}")
-    print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc*100:.2f}%, Validation Tanimoto: {val_tanimoto:.4f}")
-    print("-" * 50)
+    print(
+        f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_acc:.4f}, "
+        f"Train Tanimoto: {train_tanimoto_sim:.4f}"
+    )
+    print(
+        f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc:.4f}, "
+        f"Validation Tanimoto: {val_tanimoto_sim:.4f}"
+    )
 
-model_save_path = "chemberta_classifier.pkl"
-with open(model_save_path, 'wb') as file:
-    pickle.dump(model, file)
-print(f"Model saved to chemberta_classifier.pkl")
+# Plotting training results
+plt.figure(figsize=(12, 4))
 
-# Evaluate on Test Set
-test_loss, test_acc, test_tanimoto = eval_epoch(model, test_loader, criterion)
-print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc*100:.2f}%, Test Tanimoto: {test_tanimoto:.4f}")
-
-# Plot results
-plt.figure(figsize=(12, 6))
-plt.plot(train_losses, label='Train Loss')
-plt.plot(val_losses, label='Validation Loss')
-plt.xlabel('Epoch')
-plt.ylabel('Loss')
+plt.subplot(1, 3, 1)
+plt.plot(train_losses, label="Train Loss")
+plt.plot(val_losses, label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Loss")
 plt.legend()
-plt.show()
 
-plt.figure(figsize=(12, 6))
-plt.plot(train_accuracies, label='Train Accuracy')
-plt.plot(val_accuracies, label='Validation Accuracy')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
+plt.subplot(1, 3, 2)
+plt.plot(train_accuracies, label="Train Accuracy")
+plt.plot(val_accuracies, label="Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.title("Accuracy")
 plt.legend()
-plt.show()
 
-plt.figure(figsize=(12, 6))
-plt.plot(train_tanimotos, label='Train Tanimoto Similarity')
-plt.plot(val_tanimotos, label='Validation Tanimoto Similarity')
-plt.xlabel('Epoch')
-plt.ylabel('Tanimoto Similarity')
+plt.subplot(1, 3, 3)
+plt.plot(train_tanimoto_sims, label="Train Tanimoto")
+plt.plot(val_tanimoto_sims, label="Validation Tanimoto")
+plt.xlabel("Epoch")
+plt.ylabel("Tanimoto Similarity")
+plt.title("Tanimoto Similarity")
 plt.legend()
+
+plt.tight_layout()
 plt.show()
