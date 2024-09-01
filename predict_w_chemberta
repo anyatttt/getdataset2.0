@@ -44,18 +44,20 @@ def predict_fragment_smiles(drug_smiles, model, tokenizer, label_encoder, max_le
 
     return predicted_smiles
 
-# Example usage: Predict fragment SMILES for a list of drug SMILES
-drug_smiles_list = [
-    "CCO",  # Example SMILES strings
-    "CCN(CC)CC",
-    "CC(C)C1=CC=CC=C1"
-]
-
 # Load the label encoder
 label_encoder = LabelEncoder()
 label_encoder.fit(predetermined_df['SMILES'])
 
-# Predict the fragment SMILES for each drug SMILES
-for drug_smiles in drug_smiles_list:
+# Loop to continuously ask for input from the terminal
+while True:
+    # Get SMILES input from the user
+    drug_smiles = input("Enter a drug SMILES (or type 'exit' to quit): ")
+    
+    if drug_smiles.lower() == 'exit':
+        break
+    
+    # Predict the fragment SMILES
     predicted_fragment = predict_fragment_smiles(drug_smiles, model, tokenizer, label_encoder)
-    print(f"Drug SMILES: {drug_smiles}, Predicted Fragment SMILES: {predicted_fragment}")
+    
+    # Display the result
+    print(f"Predicted Fragment SMILES: {predicted_fragment}\n")
