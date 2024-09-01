@@ -27,8 +27,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f'Device: {device}')
 
 # Load the datasets
-data_file_path = "mTORcanonical.csv"  # Update this with your dataset path
-predetermined_smiles_path = "unique_smile3.csv"  # Path to predetermined SMILES
+data_file_path = "try.csv"  # Update this with your dataset path
+predetermined_smiles_path = "try100.csv"  # Path to predetermined SMILES
 
 # Load main dataset
 df = pd.read_csv(data_file_path)
@@ -266,6 +266,25 @@ for epoch in range(epochs):
         f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc:.4f}, "
         f"Validation Tanimoto: {val_tanimoto_sim:.4f}"
     )
+
+# Save the model state, optimizer state, and other relevant information
+save_path = "chemberta_model.pkl"
+torch.save({
+    'epoch': epoch + 1,  # Save the last epoch
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'scheduler_state_dict': scheduler.state_dict(),
+    'train_losses': train_losses,
+    'val_losses': val_losses,
+    'train_accuracies': train_accuracies,
+    'val_accuracies': val_accuracies,
+    'train_tanimoto_sims': train_tanimoto_sims,
+    'val_tanimoto_sims': val_tanimoto_sims,
+    'label_encoder': label_encoder.classes_,  # Save label encoder classes
+}, save_path)
+
+print(f"Model saved to {save_path}")
+
 
 # Plotting training results
 plt.figure(figsize=(12, 4))
