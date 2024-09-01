@@ -1,0 +1,61 @@
+# Import necessary libraries for prediction
+import torch
+from transformers import RobertaTokenizer
+import pandas as pd
+import pickle
+
+# Load the trained model
+model_save_path = "./chembertatrained.pkl"
+with open(model_save_path, 'rb') as file:
+    model = pickle.load(file)
+
+# Set the model to evaluation mode
+model.eval()
+
+# Load the predetermined SMILES for which you want to make predictions
+predetermined_smiles_path = "unique_smiles.csv"
+predetermined_df = pd.read_csv(predetermined_smiles_path)
+
+# Initialize the tokenizer
+tokenizer = RobertaTokenizer.from_pretrained('seyonec/ChemBERTa-zinc-base-v1')
+
+# Function to predict the fragment SMILES for a given drug SMILES
+def predict_fragment_smiles(drug_smiles, model, tokenizer, label_encoder, max_length=128):
+    # Tokenize the input SMILES string
+    encoding = tokenizer(
+        drug_smiles,
+        max_length=max_length,
+        padding='max_length',
+        truncation=True,
+        return_tensors='pt'
+    )
+
+    # Move tensors to the appropriate device
+    input_ids = encoding['input_ids'].to(device)
+    attention_mask = encoding['attention_mask'].to(device)
+
+    # Make predictions
+    with torch.no_grad():
+        outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+        _, predicted_label = torch.max(outputs, dim=1)
+    
+    # Convert the predicted label to the corresponding SMILES string
+    predicted_smiles = label_encoder.inverse_transform(predicted_label.cpu().numpy())[0]
+
+    return predicted_smiles
+
+# Example usage: Predict fragment SMILES for a list of drug SMILES
+drug_smiles_list = [
+    "CCO",  # Example SMILES strings
+    "CCN(CC)CC",
+    "CC(C)C1=CC=CC=C1"
+]
+
+# Load the label encoder
+label_encoder = LabelEncoder()
+label_encoder.fit(predetermined_df['SMILES'])
+
+# Predict the fragment SMILES for each drug SMILES
+for drug_smiles in drug_smiles_list:
+    predicted_fragment = predict_fragment_smiles(drug_smiles, model, tokenizer, label_encoder)
+    print(f"Drug SMILES: {drug_smiles}, Predicted Fragment SMILES: {predicted_fragment}")
